@@ -9,7 +9,10 @@ type Classificacao = Int
 type Preco = Int
 type Filme = (Codigo, Titulo, Horarios, Classificacao, Preco)
 type InfoListFilme = (Codigo, Titulo, Horarios, Classificacao)
-type InforBuyFilme = (Codigo, Titulo, Horarios)
+type InfoBuyFilme = (Codigo, Titulo, Horarios)
+type QuantidadeIngressos = Int
+type Ingresso = (Codigo, QuantidadeIngressos, Horarios)
+type Cupom = (Titulo, Preco)
 
 
 filmesDisponiveis :: [Filme]
@@ -17,6 +20,7 @@ filmesDisponiveis = [ (1, "Batman o retorno", ["14:00", "16:30", "19:00"], 14, 1
                       (2, "Pokemon 2", ["15:00", "18:30"], 9, 1500),
                       (3, "Homem Aranha 10", ["19:30", "21:00"], 16, 1500)
                     ]
+
 
 
 formataCentavos :: Preco -> String
@@ -30,6 +34,7 @@ formataCentavos preco =
 
 
 
+
 formatarHorarios :: Horarios -> String
 formatarHorarios [] = ""
 formatarHorarios [hora] = hora
@@ -38,12 +43,18 @@ formatarHorarios (hora:horas) = hora ++ ", " ++ formatarHorarios horas
 
 
 
-obterInfoFilmes :: [Filme] -> [InfoListFilme]
-obterInfoFilmes = map (\(cod, tit, hrs, clsf, _) -> (cod, tit, hrs, clsf))
+getInfoListFilmes :: [Filme] -> [InfoListFilme]
+getInfoListFilmes = map (\(cod, tit, hrs, clsf, _) -> (cod, tit, hrs, clsf))
 
 
-printTabelaFilmes :: [(Codigo, Titulo, Horarios, Classificacao)] -> String
-printTabelaFilmes filmes =
+
+getInfoBuyFilmes :: [Filme] -> [InfoBuyFilme]
+getInfoBuyFilmes = map (\(cod, tit, hrs, _, _) -> (cod, tit, hrs))
+
+
+
+printInfoListFilmes :: [InfoListFilme] -> String
+printInfoListFilmes filmes =
     let header = "Código\tTítulo\t\t\tHorários\t\tClassificação\n"
         maxTituloLength = maximum $ map (length . (\(_, tit, _, _) -> tit)) filmes
         maxHorariosLength = maximum $ map (length . formatarHorarios . (\(_, _, hrs, _) -> hrs)) filmes
@@ -52,16 +63,84 @@ printTabelaFilmes filmes =
         linhaFilme (cod, tit, hrs, clsf) = show cod ++ "\t" ++ alignTitulo tit ++ "\t" ++ alignHorarios hrs ++ "\t" ++ show clsf ++ "\n"
     in header ++ 
     "---------------------------------------------------------------------\n" ++
-    concatMap linhaFilme filmes
+    concatMap linhaFilme filmes ++
+    "---------------------------------------------------------------------\n"
+
+
+
+printInfoBuyFilmes :: [InfoBuyFilme] -> String
+printInfoBuyFilmes filmes =
+    let header = "Código\tTítulo\t\t\tHorários\n"
+        maxTituloLength = maximum $ map (length . (\(_, tit, _) -> tit)) filmes
+        maxHorariosLength = maximum $ map (length . formatarHorarios . (\(_, _, hrs) -> hrs)) filmes
+        alignTitulo tit = tit ++ replicate (maxTituloLength - length tit) ' '
+        alignHorarios hrs = formatarHorarios hrs ++ replicate (maxHorariosLength - length (formatarHorarios hrs)) ' '
+        linhaFilme (cod, tit, hrs) = show cod ++ "\t" ++ alignTitulo tit ++ "\t" ++ alignHorarios hrs ++ "\n"
+    in header ++
+       "---------------------------------------------------------------------\n" ++
+       concatMap linhaFilme filmes ++
+       "---------------------------------------------------------------------\n"
+
+
+
+ingressosComprados :: [Ingresso]
+ingressosComprados = []
+
+
+comprarIngressos :: IO ()
+comprarIngressos = do
+    let loopCompraIngressos :: [(Codigo, Int, [String])] -> IO ()
+        loopCompraIngressos ingressosSoFar = do
+            
+            putStr "Digite o código do filme desejado (ou 0 para finalizar): "
+            codigoFilme <- readLn
+
+            if codigoFilme == 0 then do
+                if null ingressosSoFar then do
+                    putStrLn "Pedido cancelado. Nenhum ingresso foi comprado."
+                    menu
+                else do
+                    -- Salvar os ingressos em um arquivo
+                    writeFile "ingressos.txt" (show ingressosSoFar)
+                    putStrLn "Pedido finalizado com sucesso!"
+                    menu
+            else if any (\(cod, _, _, _, _) -> cod == codigoFilme) filmesDisponiveis then do
+                putStr "Digite a quantidade de ingressos desejada: "
+                qtdIngressos <- readLn
+
+                putStr "Digite o horário desejado: "
+                horario <- getLine
+
+                let ingresso = (codigoFilme, qtdIngressos, [horario])
+                let novosIngressos = ingressosSoFar ++ [ingresso]
+
+                putStrLn "Ingresso adicionado com sucesso!"
+
+                putStr "Digite 1 para solicitar mais um ingresso ou 0 para finalizar o pedido: "
+                escolha <- readLn :: IO Int
+                if escolha == 1 then
+                    loopCompraIngressos novosIngressos
+                else do
+                    -- Salvar os ingressos em um arquivo
+                    writeFile "ingressos.txt" (show novosIngressos)
+                    putStrLn "Pedido finalizado com sucesso!"
+                    menu
+            else do
+                putStrLn "Código do filme inexistente!"
+                loopCompraIngressos ingressosSoFar
+
+    loopCompraIngressos []
+
+
 
 
 
 -- Função para imprimir o menu
 printMenu :: IO ()
 printMenu = do
-    putStrLn "\n========================="
-    putStrLn "Cinema Haskell"
-    putStrLn "==========================\n"
+    putStrLn "\n\n\n\n============================================================================"
+    putStrLn "\t\t\tCinema Haskell"
+    putStrLn "============================================================================\n"
     putStrLn "Opções:"
     putStrLn "1. Listar Filmes \n2. Comprar Ingressos \n3. Cupom Fiscal \n4. Fim"
 
@@ -69,8 +148,8 @@ printMenu = do
 
 
 -- Função para ler uma opção do usuário
-leOpcao :: IO Opcao
-leOpcao = do
+getOpcao :: IO Opcao
+getOpcao = do
     putStr "Escolha uma opção: "
     x <- readLn
     return x
@@ -83,15 +162,16 @@ escolhaUser :: Opcao -> IO ()
 escolhaUser escolha =
     if escolha == 1 then do
         putStrLn "\n============================================================================"
-        putStrLn "\t\t\tFilmes Disponíveis"
+        putStrLn "\t\t\tLista de Filmes"
         putStrLn "============================================================================\n"
-        putStrLn $ printTabelaFilmes (obterInfoFilmes filmesDisponiveis)
-        --let infoFilm = obterInfoFilmes filmesDisponiveis
-        --print infoFilm
+        putStrLn $ printInfoListFilmes (getInfoListFilmes filmesDisponiveis)
         menu
     else if escolha == 2 then do
-        putStrLn "Você escolheu 2"
-        menu
+        putStrLn "\n============================================================================"
+        putStrLn "\t\t\tCompre seu ingresso"
+        putStrLn "============================================================================\n"
+        putStrLn $ printInfoBuyFilmes (getInfoBuyFilmes filmesDisponiveis)
+        comprarIngressos
     else if escolha == 3 then do
         putStrLn "Você escolheu 3"
         menu
@@ -101,7 +181,7 @@ escolhaUser escolha =
         putStrLn "============================================================================\n"
     else do
         putStrLn "Inválido!"
-        opcao <- leOpcao
+        opcao <- getOpcao
         escolhaUser opcao
 
 
@@ -111,7 +191,7 @@ escolhaUser escolha =
 menu :: IO ()
 menu = do
     printMenu
-    opcao <- leOpcao
+    opcao <- getOpcao
     escolhaUser opcao
 
 
@@ -123,4 +203,3 @@ main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
     menu
-    --putStrLn "SLA"
