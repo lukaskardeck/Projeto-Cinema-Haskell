@@ -1,5 +1,7 @@
 import System.IO (stdout, hSetBuffering, BufferMode(NoBuffering))
 import Text.Printf
+import Data.List (find)
+
 
 type Opcao = Int
 type Codigo = Int
@@ -134,6 +136,49 @@ comprarIngressos = do
 
 
 
+calcularPrecoIngresso :: Ingresso -> Preco
+calcularPrecoIngresso (codigoFilme, qtd, _) =
+    case find (\(cod, _, _, _, _) -> cod == codigoFilme) filmesDisponiveis of
+        Just (_, _, _, _, preco) -> preco * fromIntegral qtd
+        Nothing -> 0
+
+
+cupomFiscal :: IO ()
+cupomFiscal = do
+    putStrLn "\n============================================================================"
+    putStrLn "\t\t\tCupom Fiscal"
+    putStrLn "============================================================================\n"
+
+    -- Ler dados do arquivo
+    conteudoArquivo <- readFile "ingressos.txt"
+    let ingressos = read conteudoArquivo :: [Ingresso]
+
+    if null ingressos then do
+        putStrLn "Você ainda não comprou nenhum ingresso."
+    else do
+        let calcularPrecoTotal = sum . map calcularPrecoIngresso
+        let precoTotal = calcularPrecoTotal ingressos
+
+        -- Exibir cupom fiscal
+        mapM_ (\ingresso@(cod, _, _) -> putStrLn $ printCupomFiscal ingresso (calcularPrecoIngresso ingresso)) ingressos
+        putStrLn $ "Total" ++ replicate (30 - length "Total") '.' ++ " R$" ++ formataCentavos precoTotal
+    menu
+
+printCupomFiscal :: Ingresso -> Preco -> String
+printCupomFiscal (codigo, _, _) preco =
+    case find (\(cod, tit, _, _, _) -> cod == codigo) filmesDisponiveis of
+        Just (_, titulo, _, _, _) ->
+            let precoIngresso = formataCentavos preco
+            in titulo ++ replicate (30 - length titulo) '.' ++ " R$" ++ precoIngresso
+        Nothing -> "Filme não encontrado"
+
+
+
+
+
+
+
+
 
 -- Função para imprimir o menu
 printMenu :: IO ()
@@ -173,8 +218,7 @@ escolhaUser escolha =
         putStrLn $ printInfoBuyFilmes (getInfoBuyFilmes filmesDisponiveis)
         comprarIngressos
     else if escolha == 3 then do
-        putStrLn "Você escolheu 3"
-        menu
+        cupomFiscal
     else if escolha == 4 then do
         putStrLn "\n============================================================================"
         putStrLn "\tFim da execução! Obrigado por escolher o Cinema Haskell !"
