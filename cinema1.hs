@@ -17,6 +17,8 @@ type Ingresso = (Codigo, QuantidadeIngressos, Horarios)
 type Cupom = (Titulo, Preco)
 
 
+
+-- Base de dados contendo os filmes disponíveis.
 filmesDisponiveis :: [Filme]
 filmesDisponiveis = [ (1, "Batman o retorno", ["14:00", "16:30", "19:00"], 14, 1500),
                       (2, "Pokemon 2", ["15:00", "18:30"], 9, 1500),
@@ -25,6 +27,7 @@ filmesDisponiveis = [ (1, "Batman o retorno", ["14:00", "16:30", "19:00"], 14, 1
 
 
 
+-- Função que formata um número Int para um formato em valor monetário real.
 formataCentavos :: Preco -> String
 formataCentavos preco =
     show quo ++
@@ -37,6 +40,7 @@ formataCentavos preco =
 
 
 
+-- Pega uma lista de Strings e transforma tudo em uma String única.
 formatarHorarios :: Horarios -> String
 formatarHorarios [] = ""
 formatarHorarios [hora] = hora
@@ -44,17 +48,21 @@ formatarHorarios (hora:horas) = hora ++ ", " ++ formatarHorarios horas
 
 
 
-
+-- Seleciona apenas alguns atributos de Filme
 getInfoListFilmes :: [Filme] -> [InfoListFilme]
 getInfoListFilmes = map (\(cod, tit, hrs, clsf, _) -> (cod, tit, hrs, clsf))
 
 
 
+
+-- Seleciona apenas alguns atributos de Filme
 getInfoBuyFilmes :: [Filme] -> [InfoBuyFilme]
 getInfoBuyFilmes = map (\(cod, tit, hrs, _, _) -> (cod, tit, hrs))
 
 
 
+
+-- Retorna uma String contendo informações sobre o filme
 printInfoListFilmes :: [InfoListFilme] -> String
 printInfoListFilmes filmes =
     let header = "Código\tTítulo\t\t\tHorários\t\tClassificação\n"
@@ -70,6 +78,8 @@ printInfoListFilmes filmes =
 
 
 
+
+-- Retorna uma String contendo informações sobre o filme
 printInfoBuyFilmes :: [InfoBuyFilme] -> String
 printInfoBuyFilmes filmes =
     let header = "Código\tTítulo\t\t\tHorários\n"
@@ -85,10 +95,14 @@ printInfoBuyFilmes filmes =
 
 
 
+-- Lista vazia de ingressos
 ingressosComprados :: [Ingresso]
 ingressosComprados = []
 
 
+
+
+-- Função responsável pela lógica da compra de ingresso
 comprarIngressos :: IO ()
 comprarIngressos = do
     let loopCompraIngressos :: [(Codigo, Int, [String])] -> IO ()
@@ -116,7 +130,7 @@ comprarIngressos = do
                 let ingresso = (codigoFilme, qtdIngressos, [horario])
                 let novosIngressos = ingressosSoFar ++ [ingresso]
 
-                putStrLn "Ingresso adicionado com sucesso!"
+                putStrLn "Ingresso adicionado com sucesso!\n"
 
                 putStr "Digite 1 para solicitar mais um ingresso ou 0 para finalizar o pedido: "
                 escolha <- readLn :: IO Int
@@ -136,6 +150,7 @@ comprarIngressos = do
 
 
 
+-- Função que recebe um tipo Ingresso, e através da quantidade de ingressos, retorna o valor total comprado daquele filme
 calcularPrecoIngresso :: Ingresso -> Preco
 calcularPrecoIngresso (codigoFilme, qtd, _) =
     case find (\(cod, _, _, _, _) -> cod == codigoFilme) filmesDisponiveis of
@@ -143,12 +158,11 @@ calcularPrecoIngresso (codigoFilme, qtd, _) =
         Nothing -> 0
 
 
+
+
+-- Função que realiza a lógica de pegar as informações sobre os ingressos comprados
 cupomFiscal :: IO ()
 cupomFiscal = do
-    putStrLn "\n============================================================================"
-    putStrLn "\t\t\tCupom Fiscal"
-    putStrLn "============================================================================\n"
-
     -- Ler dados do arquivo
     conteudoArquivo <- readFile "ingressos.txt"
     let ingressos = read conteudoArquivo :: [Ingresso]
@@ -161,9 +175,14 @@ cupomFiscal = do
 
         -- Exibir cupom fiscal
         mapM_ (\ingresso@(cod, _, _) -> putStrLn $ printCupomFiscal ingresso (calcularPrecoIngresso ingresso)) ingressos
-        putStrLn $ "Total" ++ replicate (30 - length "Total") '.' ++ " R$" ++ formataCentavos precoTotal
+        putStrLn $ "\nTotal" ++ replicate (30 - length "Total") '.' ++ " R$" ++ formataCentavos precoTotal
     menu
 
+
+
+
+
+-- Retorna uma string contendo as informações do ingresso
 printCupomFiscal :: Ingresso -> Preco -> String
 printCupomFiscal (codigo, _, _) preco =
     case find (\(cod, tit, _, _, _) -> cod == codigo) filmesDisponiveis of
@@ -176,6 +195,18 @@ printCupomFiscal (codigo, _, _) preco =
 
 
 
+-- Salvar uma lista vazia no arquivo txt
+limparIngressos :: IO ()
+limparIngressos = do
+    writeFile "ingressos.txt" "[]"
+
+
+
+
+-- Limpa o terminal, facilitando legibilidade
+limparTerminal :: IO ()
+limparTerminal = putStr "\ESC[2J\ESC[H"
+
 
 
 
@@ -183,7 +214,7 @@ printCupomFiscal (codigo, _, _) preco =
 -- Função para imprimir o menu
 printMenu :: IO ()
 printMenu = do
-    putStrLn "\n\n\n\n============================================================================"
+    putStrLn "\n\n============================================================================"
     putStrLn "\t\t\tCinema Haskell"
     putStrLn "============================================================================\n"
     putStrLn "Opções:"
@@ -206,20 +237,27 @@ getOpcao = do
 escolhaUser :: Opcao -> IO ()
 escolhaUser escolha =
     if escolha == 1 then do
+        limparTerminal
         putStrLn "\n============================================================================"
         putStrLn "\t\t\tLista de Filmes"
         putStrLn "============================================================================\n"
         putStrLn $ printInfoListFilmes (getInfoListFilmes filmesDisponiveis)
         menu
     else if escolha == 2 then do
+        limparTerminal
         putStrLn "\n============================================================================"
         putStrLn "\t\t\tCompre seu ingresso"
         putStrLn "============================================================================\n"
         putStrLn $ printInfoBuyFilmes (getInfoBuyFilmes filmesDisponiveis)
         comprarIngressos
     else if escolha == 3 then do
+        limparTerminal
+        putStrLn "\n============================================================================"
+        putStrLn "\t\t\tCupom Fiscal"
+        putStrLn "============================================================================\n"
         cupomFiscal
     else if escolha == 4 then do
+        limparTerminal
         putStrLn "\n============================================================================"
         putStrLn "\tFim da execução! Obrigado por escolher o Cinema Haskell !"
         putStrLn "============================================================================\n"
@@ -246,4 +284,5 @@ menu = do
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
+    limparIngressos
     menu
